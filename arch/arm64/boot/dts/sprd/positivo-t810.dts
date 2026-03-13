@@ -2,43 +2,190 @@
 /*
  * Device Tree Source - Positivo T810
  * SoC: Unisoc Tiger T310 (UMS312)
- * GPU: PowerVR GE8300 (Rogue)
- * Kernel: postmarketOS / Alpine Linux
- * Status: SKELETON - Em desenvolvimento
+ * Kernel target: mainline-friendly (postmarketOS / Alpine)
+ *
+ * Zero-shims policy:
+ * - no Android compat layers (libhybris/Halium/libandroid-properties)
+ * - no Android-only DT nodes (ION, android,trusty-*, etc.)
  */
 
 /dts-v1/;
 
-/* TODO: substituir pelo include mainline do UMS312 quando disponível */
-/* #include "ums312.dtsi" */
-
 / {
 	model = "Positivo T810";
 	compatible = "positivo,t810", "unisoc,ums312";
+	interrupt-parent = <&intc_placeholder>;
 
 	#address-cells = <2>;
 	#size-cells = <2>;
 
-	/* --- Memória: preencher após extração do boot.img --- */
+	aliases {
+		serial1 = &uart1;
+	};
+
+	/* Temporary providers until sharkl5 base clock/irq nodes are imported. */
+	intc_placeholder: interrupt-controller {
+		interrupt-controller;
+		#interrupt-cells = <3>;
+	};
+
+	clk_apapb_gate: clock-controller-apapb-gate {
+		#clock-cells = <1>;
+	};
+
+	clk_ap_uart: clock-controller-ap-uart {
+		#clock-cells = <1>;
+	};
+
+	clk_sdio_src: clock-controller-sdio-src {
+		#clock-cells = <1>;
+	};
+
+	clk_ext_26m: clock-controller-ext-26m {
+		#clock-cells = <0>;
+	};
+
+	vmmc_emmc: regulator-vmmc-emmc {
+		compatible = "regulator-fixed";
+		regulator-name = "vmmc-emmc";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		status = "disabled";
+	};
+
+	/* Legacy DTB reports 2 GiB at 0x80000000. */
 	memory@80000000 {
 		device_type = "memory";
-		/* reg = <0x0 0x80000000 0x0 0x80000000>; // 2GB placeholder */
+		reg = <0x0 0x80000000 0x0 0x80000000>;
 	};
 
 	chosen {
-		/* bootargs serão definidos na Fase 3 */
-		/* simple-framebuffer será inserido aqui após extração do DTB legado */
+		#address-cells = <2>;
+		#size-cells = <2>;
+		stdout-path = "serial1:115200n8";
+
+		/*
+		 * Fill with U-Boot/LK framebuffer values when available.
+		 * Keep disabled until reg/geometry are validated.
+		 */
+		framebuffer0: framebuffer@0 {
+			compatible = "simple-framebuffer";
+			reg = <0x0 0x0 0x0 0x0>;
+			width = <0>;
+			height = <0>;
+			stride = <0>;
+			format = "r5g6b5";
+			status = "disabled";
+		};
 	};
 
-	/* --- eFuse: UMS312 @ 0x32240000 --- */
-	efuse@32240000 {
-		compatible = "sprd,ums312-efuse";
-		reg = <0x0 0x32240000 0x0 0x1000>;
-		/* clocks e hwlocks: mapear do DTB legado */
-		status = "disabled"; /* ativar após validação */
-	};
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
 
-	/* --- PMIC SC2731: candidato forte para T810 --- */
-	/* instanciar sob barramento SPI após confirmar no DTB extraído */
-	/* spi-max-frequency = <26000000>; */
+		ap-apb {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			uart1: serial@70100000 {
+				compatible = "sprd,ums312-uart", "sprd,sc9836-uart";
+				reg = <0x0 0x70100000 0x0 0x100>;
+				interrupt-parent = <&intc_placeholder>;
+				interrupts = <0 3 4>;
+				clock-names = "enable", "uart", "source";
+				clocks = <&clk_apapb_gate 0x0f>, <&clk_ap_uart 0x02>, <&clk_ext_26m>;
+				/* Legacy node has no resets/reset-names and no pinctrl-* entries. */
+				status = "okay";
+			};
+
+			emmc: sdio@71400000 {
+				compatible = "sprd,sdhc-r11p1";
+				reg = <0x0 0x71400000 0x0 0x1000>;
+				interrupt-parent = <&intc_placeholder>;
+				interrupts = <0 10 4>;
+				clock-names = "sdio_clk", "sdio_clk_source", "sdio_ahb_enable";
+				clocks = <&clk_ap_uart 0x14>, <&clk_sdio_src 0x00>, <&clk_apapb_gate 0x19>;
+				sprd,hs400es-dly = <0x4f 0x7f 0x32 0x32>;
+				sprd,hs400-dly = <0x4b 0x72 0x38 0x38>;
+				sprd,hs200-dly = <0x7f 0xde 0xca 0xca>;
+				sprd,ddr52-dly = <0x30 0x27 0x19 0x19>;
+				sprd,mmchs-dly = <0x7f 0x30 0x30 0x30>;
+				vmmc-supply = <&vmmc_emmc>;
+				voltage-ranges = <3000 3000>;
+				bus-width = <8>;
+				non-removable;
+				cap-mmc-hw-reset;
+				mmc-hs400-enhanced-strobe;
+				mmc-hs400-1_8v;
+				mmc-hs200-1_8v;
+				mmc-ddr-1_8v;
+				sprd,name = "sdio_emmc";
+				sprd,sdio-adma;
+				no-sdio;
+				no-sd;
+				status = "disabled";
+			};
+		};
+
+		aon {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			spi@32100000 {
+				compatible = "sprd,sharkl5-adi";
+				reg = <0x0 0x32100000 0x0 0x100000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				sc2730_pmic: pmic@0 {
+					compatible = "sprd,sc2730";
+					reg = <0>;
+					spi-max-frequency = <26000000>;
+					interrupt-controller;
+					#interrupt-cells = <2>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					status = "disabled";
+
+					watchdog@40 {
+						compatible = "sprd,sc27xx-wdt", "sprd,sc2730-wdt";
+						reg = <0x40>;
+						status = "disabled";
+					};
+
+					pmic_eic: gpio@280 {
+						compatible = "sprd,sc27xx-eic", "sprd,sc2730-eic";
+						reg = <0x280>;
+						interrupt-parent = <&sc2730_pmic>;
+						interrupts = <4 4>;
+						gpio-controller;
+						#gpio-cells = <2>;
+						interrupt-controller;
+						#interrupt-cells = <2>;
+						status = "disabled";
+					};
+
+					pmic_efuse: efuse@300 {
+						compatible = "sprd,sc27xx-efuse", "sprd,sc2730-efuse";
+						reg = <0x300>;
+						#address-cells = <1>;
+						#size-cells = <1>;
+						status = "disabled";
+					};
+				};
+			};
+
+			efuse@32240000 {
+				compatible = "sprd,ums312-efuse", "sprd,sharkl5-efuse";
+				reg = <0x0 0x32240000 0x0 0x10000>;
+				status = "disabled";
+			};
+		};
+	};
 };
