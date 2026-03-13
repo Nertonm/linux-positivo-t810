@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Device Tree Source - Positivo T810
+ * SoC: Unisoc Tiger T310 (UMS312)
+ * GPU: PowerVR GE8300 (Rogue)
+ * Kernel: postmarketOS / Alpine Linux
+ * Status: SKELETON - Em desenvolvimento
+ */
+
+/dts-v1/;
+
+/* TODO: substituir pelo include mainline do UMS312 quando disponível */
+/* #include "ums312.dtsi" */
+
+/ {
+	model = "Positivo T810";
+	compatible = "positivo,t810", "unisoc,ums312";
+
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	/* --- Memória: preencher após extração do boot.img --- */
+	memory@80000000 {
+		device_type = "memory";
+		/* reg = <0x0 0x80000000 0x0 0x80000000>; // 2GB placeholder */
+	};
+
+	chosen {
+		/* bootargs serão definidos na Fase 3 */
+		/* simple-framebuffer será inserido aqui após extração do DTB legado */
+	};
+
+	/* --- eFuse: UMS312 @ 0x32240000 --- */
+	efuse@32240000 {
+		compatible = "sprd,ums312-efuse";
+		reg = <0x0 0x32240000 0x0 0x1000>;
+		/* clocks e hwlocks: mapear do DTB legado */
+		status = "disabled"; /* ativar após validação */
+	};
+
+	/* --- PMIC SC2731: candidato forte para T810 --- */
+	/* instanciar sob barramento SPI após confirmar no DTB extraído */
+	/* spi-max-frequency = <26000000>; */
+};

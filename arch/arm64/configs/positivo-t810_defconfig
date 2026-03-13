@@ -1,0 +1,28 @@
+# Saída de console e terminal
+CONFIG_VT=y
+CONFIG_VT_CONSOLE=y
+CONFIG_HW_CONSOLE=y
+
+# Nós de dispositivo automáticos
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+
+# Isolamento de processos
+CONFIG_CGROUPS=y
+CONFIG_NAMESPACES=y
+
+# Execução de binários
+CONFIG_BINFMT_ELF=y
+CONFIG_BINFMT_SCRIPT=y
+
+# Sistemas de arquivos
+CONFIG_EXT4_FS=y
+CONFIG_F2FS_FS=y
+
+# DMA-BUF (substituição do ION)
+CONFIG_DMA_SHARED_BUFFER=y
+
+# EXPURGO: subsistemas Android proibidos
+# CONFIG_ANDROID_BINDER_IPC is not set
+# CONFIG_ION is not set
+# CONFIG_WAKELOCK is not set
